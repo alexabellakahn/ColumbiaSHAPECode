@@ -1,0 +1,185 @@
+import random
+import sys
+import time
+
+# You can use the functions in othello_shared to write your AI
+from othello_shared import find_lines, get_possible_moves, get_score, play_move
+
+
+def compute_utility(board, color):
+    dark = get_score(board)[0]
+    light = get_score(board)[-1]
+   
+    if color == 1:
+        if board[0][0] == 1:
+            dark += 10
+        elif board[len(board) - 1][0] == 1:
+            dark += 10
+        elif board[0][len(board) - 1] == 1:
+            dark += 10
+        elif board[len(board) - 1][len(board) - 1] == 1:
+            dark += 10
+        ut = dark - light
+    else:
+        if board[0][0] == 2:
+            light += 10
+        elif board[len(board) - 1][0] == 2:
+            light += 10
+        elif board[0][len(board) - 1] == 2:
+            light += 10
+        elif board[len(board) - 1][len(board) - 1] == 2:
+            light += 10
+        ut = light - dark
+   
+    return ut
+
+
+############ MINIMAX ###############################
+
+def minimax_min_node(board, color):
+    opp_color = 1 if color == 2 else 2
+    moves = get_possible_moves(board, opp_color)
+    if not moves:
+        return compute_utility(board, opp_color)
+    else:
+        smallest = 1000000000029834750000000000103498752304601274
+        for m in moves:
+            new_board = play_move(board, opp_color, m[0], m[1])
+            max_value = minimax_max_node(new_board, color)
+            if max_value < smallest:
+                smallest = max_value
+     
+    return smallest
+
+
+def minimax_max_node(board, color):
+    opp_color = 1 if color == 2 else 2
+   
+    moves = get_possible_moves(board, color)
+    if not moves:
+        return compute_utility(board, color)
+    else:
+        largest = -1000000000029834750000000000103498752304601274
+        for m in moves:
+            new_board = play_move(board, color, m[0], m[1])
+            min_value = minimax_min_node(new_board, opp_color)
+            if min_value > largest:
+                largest = min_value
+     
+    return largest
+
+   
+def select_move_minimax(board, color):
+    """
+    Given a board and a player color, decide on a move.
+    The return value is a tuple of integers (i,j), where
+    i is the column and j is the row on the board.  
+   
+    """
+    opp_color = 1 if color == 2 else 2
+    moves = get_possible_moves(board, color)
+    biggest = -100000
+    move = (None, None)
+    for m in moves:
+        new_board = play_move(board, color, m[0], m[1])
+        minn = minimax_min_node(new_board,opp_color)
+        if minn > biggest:
+            biggest = minn
+            move = m
+   
+    return move
+   
+############ ALPHA-BETA PRUNING #####################
+
+#alphabeta_min_node(board, color, alpha, beta, level, limit)
+def alphabeta_min_node(board, color, alpha, beta, level, limit):
+    opp_color = 1 if color == 2 else 2
+    moves = get_possible_moves(board, opp_color)
+    if not moves or level == limit:
+        return compute_utility(board, opp_color)
+   
+    smallest = 1000000000029834750000000000103498752304601274
+    for m in moves:
+        new_board = play_move(board, color, m[0], m[1])
+        smallest = min(smallest, alphabeta_max_node(new_board, color, 10000, smallest, level + 1, limit))
+        if smallest <= alpha:
+            return smallest
+        beta = min(beta, smallest)
+     
+    return smallest
+
+
+#alphabeta_max_node(board, color, alpha, beta, level, limit)
+def alphabeta_max_node(board, color, alpha, beta, level, limit):
+    opp_color = 1 if color == 2 else 2
+   
+    moves = get_possible_moves(board, color)
+    if not moves or level == limit:
+        return compute_utility(board, color)
+   
+    bigboy = -1000000000029834750000000000103498752304601274
+    for m in moves:
+        new_board = play_move(board,color , m[0], m[1])
+        bigboy = max(bigboy, alphabeta_min_node(new_board, color, bigboy, -10000, level + 1, limit))
+        if bigboy >= beta:
+            return bigboy
+        alpha = min(alpha, bigboy)
+     
+    return bigboy
+
+
+def select_move_alphabeta(board, color):
+    opp_color = 1 if color == 2 else 2
+
+    moves = get_possible_moves(board, color)
+    biggest = -100000
+    move = (None, None)
+    for m in moves:
+        new_board = play_move(board, color, m[0], m[1])
+        minn = alphabeta_min_node(new_board,opp_color, biggest, -10000, 1, 6)
+        if minn > biggest:
+            biggest = minn
+            move = m
+   
+    return move
+
+
+####################################################
+def run_ai():
+    """
+    This function establishes communication with the game manager.
+    It first introduces itself and receives its color.
+    Then it repeatedly receives the current score and current board state
+    until the game is over.
+    """
+    print("Minimax AI") # First line is the name of this AI  
+    color = int(input()) # Then we read the color: 1 for dark (goes first),
+                         # 2 for light.
+
+    while True: # This is the main loop
+        # Read in the current game status, for example:
+        # "SCORE 2 2" or "FINAL 33 31" if the game is over.
+        # The first number is the score for player 1 (dark), the second for player 2 (light)
+        next_input = input()
+        status, dark_score_s, light_score_s = next_input.strip().split()
+        dark_score = int(dark_score_s)
+        light_score = int(light_score_s)
+
+        if status == "FINAL": # Game is over.
+            print
+        else:
+            board = eval(input()) # Read in the input and turn it into a Python
+                                  # object. The format is a list of rows. The
+                                  # squares in each row are represented by
+                                  # 0 : empty square
+                                  # 1 : dark disk (player 1)
+                                  # 2 : light disk (player 2)
+                   
+            # Select the move and send it to the manager
+            movei, movej = select_move_alphabeta(board, color)
+            #movei, movej = select_move_alphabeta(board, color)
+            print("{} {}".format(movei, movej))
+
+
+if __name__ == "__main__":
+    run_ai()
